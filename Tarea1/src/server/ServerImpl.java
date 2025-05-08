@@ -8,6 +8,7 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -25,67 +26,122 @@ import common.Persona;
 
 
 public class ServerImpl implements InterfazDeServer{
-		
-	public ServerImpl() throws RemoteException{
-		conectarBD();
-		getProductos();
-		UnicastRemoteObject.exportObject(this,0);
-	}
-	
-	private ArrayList<Persona> Bd_personas= new ArrayList<>();
-	private ArrayList<Historial> Bd_historial= new ArrayList<>();
-	
-	
-	public void conectarBD() {
-		Connection connection = null;
-		Statement query = null;
-		//PreparedStatement test = null;
-		ResultSet resultados = null;
-		
-		try {
-			
-			String url = "jdbc:mysql://localhost:3306/tienda";
-			String username= "root";
-			String password_BD ="";
-			
-			connection = DriverManager.getConnection(url, username, password_BD);
-			
-			query = connection.createStatement();
-			String sql= "SELECT * FROM usuario";
-			resultados = query.executeQuery(sql);
-			
-			while(resultados.next()) {
-				int id = resultados.getInt("id");
-				String nombre = resultados.getString("nombre");
-				String apellido = resultados.getString("apellido");
-				String contraseña = resultados.getString("contraseña");
-				String correo = resultados.getString("correo");
-				
-				Persona Persona = new Persona (id,nombre,apellido,contraseña,correo); 
-				Bd_personas.add(Persona);
-				System.out.println(id + " " + nombre + " " + apellido + " " + contraseña + " " + correo);
-			}
-			
-			String sqlHistorial = "SELECT * FROM historial";
-			ResultSet rsHistorial = query.executeQuery(sqlHistorial);
+    
+    private ArrayList<Persona> Bd_personas = new ArrayList<>();
+    private ArrayList<Historial> Bd_historial = new ArrayList<>();
+    private HashMap<Integer, ArrayList<Persona>> productoClientesMap = new HashMap<>();
 
-			while (rsHistorial.next()) {
-			    int id = rsHistorial.getInt("id");
-			    int idUsuario = rsHistorial.getInt("id_usuario");
-			    int idProducto = rsHistorial.getInt("id_producto");
-			    Bd_historial.add(new Historial(id, idUsuario, idProducto));
-			}
-			
-			System.out.println("Conexion exitosa");
-			connection.close();
+    public ServerImpl() throws RemoteException {
+        conectarBD();
+        getProductos();
+        UnicastRemoteObject.exportObject(this, 0);
+    }
 
-		} catch(SQLException e) {
-			e.printStackTrace();
-			System.out.println("Error BD");
-		}
-	}
-	
-	
+    private void conectarBD() {
+        Connection connection = null;
+        Statement query = null;
+        ResultSet resultados = null;
+
+        try {
+            String url = "jdbc:mysql://localhost:3306/tienda";
+            String username = "root";
+            String password_BD = "";
+
+            connection = DriverManager.getConnection(url, username, password_BD);
+            query = connection.createStatement();
+
+            // Cargar usuarios
+            ResultSet rsUsuarios = query.executeQuery("SELECT * FROM usuario");
+            while (rsUsuarios.next()) {
+                Bd_personas.add(new Persona(
+                    rsUsuarios.getInt("id"),
+                    rsUsuarios.getString("nombre"),
+                    rsUsuarios.getString("apellido"),
+                    rsUsuarios.getString("contraseña"),
+                    rsUsuarios.getString("correo")
+                ));
+            }
+
+            // Cargar historial
+            ResultSet rsHistorial = query.executeQuery("SELECT * FROM historial");
+            while (rsHistorial.next()) {
+                Bd_historial.add(new Historial(
+                    rsHistorial.getInt("id"),
+                    rsHistorial.getInt("id_usuario"),
+                    rsHistorial.getInt("id_producto")
+                ));
+            }
+
+            // Construir mapa de productos
+            for (Historial h : Bd_historial) {
+                int idProducto = h.getIdProducto();
+                Persona persona = findPersonaById(h.getIdUsuario());
+                if (persona != null) {
+                    productoClientesMap.computeIfAbsent(idProducto, k -> new ArrayList<>())
+                                      .add(persona);
+                }
+            }
+
+            connection.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private Persona findPersonaById(int idUsuario) {
+        for (Persona p : Bd_personas) {
+            if (p.getId() == idUsuario) return p;
+        }
+        return null;
+    }
+
+    // Resto de métodos implementados...
+
+    @Override
+    public void agregarHistorial(int idUsuario, int idProducto) throws RemoteException {
+        Connection connection = null;
+        PreparedStatement statement = null;
+        
+        try {
+            // 1. Conexión a la BD
+            String url = "jdbc:mysql://localhost:3306/tienda";
+            connection = DriverManager.getConnection(url, "root", "");
+            
+            // 2. Insertar en SQL
+            String sql = "INSERT INTO historial (id_usuario, id_producto) VALUES (?, ?)";
+            statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            statement.setInt(1, idUsuario);
+            statement.setInt(2, idProducto);
+            statement.executeUpdate();
+            
+            // 3. Actualizar mapa en memoria
+            ResultSet generatedKeys = statement.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                int newId = generatedKeys.getInt(1);
+                Bd_historial.add(new Historial(newId, idUsuario, idProducto));
+                
+                Persona persona = findPersonaById(idUsuario);
+                if (persona != null) {
+                    productoClientesMap.computeIfAbsent(idProducto, k -> new ArrayList<>())
+                                      .add(persona);
+                }
+            }
+            
+        } catch (SQLException e) {
+            throw new RemoteException("Error al guardar en BD: " + e.getMessage());
+        } finally {
+            // Cerrar recursos
+            try { if (statement != null) statement.close(); } catch (SQLException e) {}
+            try { if (connection != null) connection.close(); } catch (SQLException e) {}
+        }
+    }
+
+    @Override
+    public ArrayList<Persona> getPersonasQueCompraronProducto(int idProducto) throws RemoteException {
+        // Filtrar solo usuarios distintos al actual si es necesario
+        return new ArrayList<>(productoClientesMap.getOrDefault(idProducto, new ArrayList<>()));
+    }
+
 	@Override
 	public ArrayList<common.Persona> getPersonas() throws RemoteException {
 		// TODO Auto-generated method stub

@@ -5,6 +5,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 
@@ -13,18 +14,74 @@ import common.InterfazDeServer;
 import common.Persona;
 
 public class Client {
-	
-	
-    private InterfazDeServer server;
-    private Persona usuarioLogueado = null;
+	    private InterfazDeServer server;
+	    private Persona usuarioLogueado = null;
 
-    public Client() {}
+	    public Client() {}
 
-    public void startCliente() throws RemoteException, NotBoundException {
-        Registry registry = LocateRegistry.getRegistry("localhost", 1009);
-        server = (InterfazDeServer) registry.lookup("server");
-    }
+	    public void startCliente() throws RemoteException, NotBoundException {
+	        Registry registry = LocateRegistry.getRegistry("localhost", 1009);
+	        server = (InterfazDeServer) registry.lookup("server");
+	    }
 
+	    public void comprarProducto(Scanner scanner) throws RemoteException {
+	        if (usuarioLogueado == null) {
+	            System.out.println("Debe iniciar sesión primero.");
+	            return;
+	        }
+
+	        mostrarProductos(scanner);
+	        System.out.print("Ingrese el ID del producto a comprar: ");
+	        int idProducto = scanner.nextInt();
+	        scanner.nextLine();
+
+	        server.agregarHistorial(usuarioLogueado.getId(), idProducto);
+	        System.out.println("Compra realizada!");
+
+	        // Obtener recomendaciones
+	        Object[] productos = server.getProductos();
+	        Map<Integer, Map<String, Object>> productosMap = new HashMap<>();
+	        for (Object obj : productos) {
+	            @SuppressWarnings("unchecked")
+	            Map<String, Object> producto = (Map<String, Object>) obj;
+	            productosMap.put((Integer) producto.get("id"), producto);
+	        }
+
+	        ArrayList<Persona> personas = server.getPersonasQueCompraronProducto(idProducto);
+	        personas.removeIf(p -> p.getId() == usuarioLogueado.getId()); // Excluir al usuario actual
+
+	        Map<Integer, Map<String, Object>> recomendaciones = new HashMap<>();
+
+	        for (Persona p : personas) {
+	            ArrayList<Historial> historial = server.getHistorialPorUsuario(p.getId());
+	            for (int i = historial.size() - 1; i >= 0; i--) {
+	                int productoId = historial.get(i).getIdProducto();
+	                if (productoId != idProducto) {
+	                    if (productosMap.containsKey(productoId)) {
+	                        recomendaciones.put(productoId, productosMap.get(productoId));
+	                    }
+	                    break; // Solo el último producto diferente
+	                }
+	            }
+	        }
+
+	        if (recomendaciones.isEmpty()) {
+	            System.out.println("Nadie más ha comprado este producto aún.");
+	        } else {
+	            System.out.println("Personas que compraron este producto también compraron:");
+	            recomendaciones.values().forEach(producto -> {
+	                System.out.println("ID: " + producto.get("id"));
+	                System.out.println("Nombre: " + producto.get("title"));
+	                System.out.println("Precio: $" + producto.get("price"));
+	                System.out.println("-------------------------");
+	            });
+	        }
+
+	        System.out.println("¿Desea seguir comprando? (s/n)");
+	        if (scanner.nextLine().equalsIgnoreCase("s")) {
+	            comprarProducto(scanner);
+	        }
+	    }
     public void mostrarPersonas() throws RemoteException {
         ArrayList<Persona> personas = server.getPersonas();
         int cuentaPersonas = 0;
@@ -46,6 +103,7 @@ public class Client {
     	for (Object obj : productos) {
     	    @SuppressWarnings("unchecked")
 			Map<String, Object> producto = (Map<String, Object>) obj;
+    	    System.out.println("ID: "+ producto.get("id"));
     	    System.out.println("Nombre: " + producto.get("title"));
     	    System.out.println("Precio: $" + producto.get("price"));
     	    System.out.println("Categoría: " + producto.get("category"));
