@@ -6,22 +6,22 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="lib" path="C:/Users/patru/Downloads/mysql-connector-j-8.3.0.jar">
+	<classpathentry kind="lib" path="C:/Users/ageof/Desktop/jackson-annotations-2.14.0.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="C:/Users/patru/Downloads/jackson-databind-2.14.0.jar">
+	<classpathentry kind="lib" path="C:/Users/ageof/Desktop/jackson-core-2.14.0.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="C:/Users/patru/Downloads/jackson-annotations-2.14.0.jar">
+	<classpathentry kind="lib" path="C:/Users/ageof/Desktop/jackson-databind-2.14.0.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="C:/Users/patru/Downloads/jackson-core-2.14.0.jar">
+	<classpathentry kind="lib" path="C:/Users/ageof/Desktop/mysql-connector-j-8.3.0.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>

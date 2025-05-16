@@ -30,16 +30,55 @@ public class Client {
 	            return;
 	        }
 
-	        mostrarProductos(scanner);
+	        // Obtener productos y categorías
+	        Object[] productos = server.getProductos();
+	        Map<String, ArrayList<Map<String, Object>>> productosPorCategoria = new HashMap<>();
+
+	        for (Object obj : productos) {
+	            @SuppressWarnings("unchecked")
+	            Map<String, Object> producto = (Map<String, Object>) obj;
+	            String categoria = (String) producto.get("category");
+	            productosPorCategoria.putIfAbsent(categoria, new ArrayList<>());
+	            productosPorCategoria.get(categoria).add(producto);
+	        }
+
+	        // Mostrar categorías
+	        System.out.println("Categorías disponibles:");
+	        ArrayList<String> categorias = new ArrayList<>(productosPorCategoria.keySet());
+	        for (int i = 0; i < categorias.size(); i++) {
+	            System.out.println((i + 1) + ". " + categorias.get(i));
+	        }
+
+	        System.out.print("Seleccione una categoría (número): ");
+	        int opcionCategoria = scanner.nextInt();
+	        scanner.nextLine(); // limpiar buffer
+	        if (opcionCategoria < 1 || opcionCategoria > categorias.size()) {
+	            System.out.println("Opción no válida.");
+	            return;
+	        }
+
+	        String categoriaSeleccionada = categorias.get(opcionCategoria - 1);
+	        ArrayList<Map<String, Object>> productosFiltrados = productosPorCategoria.get(categoriaSeleccionada);
+
+	        // Mostrar productos de la categoría seleccionada
+	        System.out.println("Productos en la categoría: " + categoriaSeleccionada);
+	        for (Map<String, Object> producto : productosFiltrados) {
+	            System.out.println("ID: " + producto.get("id"));
+	            System.out.println("Nombre: " + producto.get("title"));
+	            System.out.println("Precio: $" + producto.get("price"));
+	            System.out.println("Rating: " + producto.get("rate") + " (" + producto.get("count") + " valoraciones)");
+	            System.out.println("Descripción: " + producto.get("description"));
+	            System.out.println("-------------------------");
+	        }
+
 	        System.out.print("Ingrese el ID del producto a comprar: ");
 	        int idProducto = scanner.nextInt();
 	        scanner.nextLine();
 
 	        server.agregarHistorial(usuarioLogueado.getId(), idProducto);
-	        System.out.println("Compra realizada!");
+	        System.out.println("¡Compra realizada!");
 
-	        // Obtener recomendaciones
-	        Object[] productos = server.getProductos();
+	        // Mostrar recomendaciones
 	        Map<Integer, Map<String, Object>> productosMap = new HashMap<>();
 	        for (Object obj : productos) {
 	            @SuppressWarnings("unchecked")
@@ -48,7 +87,7 @@ public class Client {
 	        }
 
 	        ArrayList<Persona> personas = server.getPersonasQueCompraronProducto(idProducto);
-	        personas.removeIf(p -> p.getId() == usuarioLogueado.getId()); // Excluir al usuario actual
+	        personas.removeIf(p -> p.getId() == usuarioLogueado.getId());
 
 	        Map<Integer, Map<String, Object>> recomendaciones = new HashMap<>();
 
@@ -56,11 +95,9 @@ public class Client {
 	            ArrayList<Historial> historial = server.getHistorialPorUsuario(p.getId());
 	            for (int i = historial.size() - 1; i >= 0; i--) {
 	                int productoId = historial.get(i).getIdProducto();
-	                if (productoId != idProducto) {
-	                    if (productosMap.containsKey(productoId)) {
-	                        recomendaciones.put(productoId, productosMap.get(productoId));
-	                    }
-	                    break; // Solo el último producto diferente
+	                if (productoId != idProducto && productosMap.containsKey(productoId)) {
+	                    recomendaciones.put(productoId, productosMap.get(productoId));
+	                    break; // solo el último producto diferente
 	                }
 	            }
 	        }
@@ -82,6 +119,7 @@ public class Client {
 	            comprarProducto(scanner);
 	        }
 	    }
+
     public void mostrarPersonas() throws RemoteException {
         ArrayList<Persona> personas = server.getPersonas();
         int cuentaPersonas = 0;
