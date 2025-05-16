@@ -102,17 +102,34 @@ public class Client {
 	            }
 	        }
 
-	        if (recomendaciones.isEmpty()) {
-	            System.out.println("Nadie más ha comprado este producto aún.");
-	        } else {
-	            System.out.println("Personas que compraron este producto también compraron:");
-	            recomendaciones.values().forEach(producto -> {
-	                System.out.println("ID: " + producto.get("id"));
-	                System.out.println("Nombre: " + producto.get("title"));
-	                System.out.println("Precio: $" + producto.get("price"));
-	                System.out.println("-------------------------");
-	            });
-	        }
+		if (recomendaciones.isEmpty()) {
+   		System.out.println("Nadie más ha comprado este producto aún.");
+    
+   		 
+    		Map<String, Object> productoComprado = productosMap.get(idProducto);
+    		String categoria = (String) productoComprado.get("category");
+
+    		System.out.println("Recomendaciones basadas en categoría (" + categoria + "):");
+
+   		for (Map<String, Object> producto : productosMap.values()) {
+       			int prodId = (Integer) producto.get("id");
+        		if (prodId != idProducto && categoria.equals(producto.get("category"))) {
+            		System.out.println("ID: " + producto.get("id"));
+            		System.out.println("Nombre: " + producto.get("title"));
+            		System.out.println("Precio: $" + producto.get("price"));
+            		System.out.println("-------------------------");
+        		}
+    		}
+		} else {
+    			System.out.println("Personas que compraron este producto también compraron:");
+    			recomendaciones.values().forEach(producto -> {
+        			System.out.println("ID: " + producto.get("id"));
+        			System.out.println("Nombre: " + producto.get("title"));
+        			System.out.println("Precio: $" + producto.get("price"));
+        			System.out.println("-------------------------");
+    			});
+		}
+
 
 	        System.out.println("¿Desea seguir comprando? (s/n)");
 	        if (scanner.nextLine().equalsIgnoreCase("s")) {
