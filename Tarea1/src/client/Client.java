@@ -168,7 +168,6 @@ public class Client {
         }
     }
 
-
     public void mostrarPersonas() throws RemoteException {
         ArrayList<Persona> personas = server.getPersonas();
         int cuentaPersonas = 0;
