@@ -14,128 +14,160 @@ import common.InterfazDeServer;
 import common.Persona;
 
 public class Client {
-	    private InterfazDeServer server;
-	    private Persona usuarioLogueado = null;
+	private InterfazDeServer server;
+    private Persona usuarioLogueado = null;
 
-	    public Client() {}
+    public Client() {}
 
-	    public void startCliente() throws RemoteException, NotBoundException {
-	        Registry registry = LocateRegistry.getRegistry("localhost", 1009);
-	        server = (InterfazDeServer) registry.lookup("server");
-	    }
+    public void startCliente() throws RemoteException, NotBoundException {
+        Registry registry = LocateRegistry.getRegistry("localhost", 1009);
+        server = (InterfazDeServer) registry.lookup("server");
+    }
 
-	    public void comprarProducto(Scanner scanner) throws RemoteException {
-	        if (usuarioLogueado == null) {
-	            System.out.println("Debe iniciar sesión primero.");
-	            return;
-	        }
+    private String traducirCategoria(String categoriaEnIngles) {
+        Map<String, String> traducciones = new HashMap<>();
+        traducciones.put("men's clothing", "Ropa de Hombre");
+        traducciones.put("women's clothing", "Ropa de Mujer");
+        traducciones.put("jewelery", "Joyería");
+        traducciones.put("electronics", "Electrónica");
 
-	        // Obtener productos y categorías
-	        Object[] productos = server.getProductos();
-	        Map<String, ArrayList<Map<String, Object>>> productosPorCategoria = new HashMap<>();
+        return traducciones.getOrDefault(categoriaEnIngles, categoriaEnIngles);
+    }
 
-	        for (Object obj : productos) {
-	            @SuppressWarnings("unchecked")
-	            Map<String, Object> producto = (Map<String, Object>) obj;
-	            String categoria = (String) producto.get("category");
-	            productosPorCategoria.putIfAbsent(categoria, new ArrayList<>());
-	            productosPorCategoria.get(categoria).add(producto);
-	        }
+    public void comprarProducto(Scanner scanner) throws RemoteException {
+        if (usuarioLogueado == null) {
+            System.out.println("Debe iniciar sesión primero.");
+            return;
+        }
 
-	        // Mostrar categorías
-	        System.out.println("Categorías disponibles:");
-	        ArrayList<String> categorias = new ArrayList<>(productosPorCategoria.keySet());
-	        for (int i = 0; i < categorias.size(); i++) {
-	            System.out.println((i + 1) + ". " + categorias.get(i));
-	        }
+        Object[] productos = server.getProductos();
+        Map<String, ArrayList<Map<String, Object>>> productosPorCategoria = new HashMap<>();
 
-	        System.out.print("Seleccione una categoría (número): ");
-	        int opcionCategoria = scanner.nextInt();
-	        scanner.nextLine(); // limpiar buffer
-	        if (opcionCategoria < 1 || opcionCategoria > categorias.size()) {
-	            System.out.println("Opción no válida.");
-	            return;
-	        }
+        for (Object obj : productos) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> producto = (Map<String, Object>) obj;
+            String categoria = (String) producto.get("category");
+            productosPorCategoria.putIfAbsent(categoria, new ArrayList<>());
+            productosPorCategoria.get(categoria).add(producto);
+        }
 
-	        String categoriaSeleccionada = categorias.get(opcionCategoria - 1);
-	        ArrayList<Map<String, Object>> productosFiltrados = productosPorCategoria.get(categoriaSeleccionada);
+        System.out.println("Categorías disponibles:");
+        ArrayList<String> categorias = new ArrayList<>(productosPorCategoria.keySet());
+        for (int i = 0; i < categorias.size(); i++) {
+            System.out.println((i + 1) + ". " + traducirCategoria(categorias.get(i)));
+        }
 
-	        // Mostrar productos de la categoría seleccionada
-	        System.out.println("Productos en la categoría: " + categoriaSeleccionada);
-	        for (Map<String, Object> producto : productosFiltrados) {
-	            System.out.println("ID: " + producto.get("id"));
-	            System.out.println("Nombre: " + producto.get("title"));
-	            System.out.println("Precio: $" + producto.get("price"));
-	            System.out.println("Rating: " + producto.get("rate") + " (" + producto.get("count") + " valoraciones)");
-	            System.out.println("Descripción: " + producto.get("description"));
-	            System.out.println("-------------------------");
-	        }
+        int opcionCategoria = -1;
+        while (true) {
+            System.out.print("Seleccione una categoría (número): ");
+            String entrada = scanner.nextLine();
+            try {
+                opcionCategoria = Integer.parseInt(entrada);
+                if (opcionCategoria >= 1 && opcionCategoria <= categorias.size()) {
+                    break;
+                } else {
+                    System.out.println("Opción fuera de rango. Intente nuevamente.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Entrada inválida. Debe ingresar un número.");
+            }
+        }
 
-	        System.out.print("Ingrese el ID del producto a comprar: ");
-	        int idProducto = scanner.nextInt();
-	        scanner.nextLine();
+        String categoriaSeleccionada = categorias.get(opcionCategoria - 1);
+        ArrayList<Map<String, Object>> productosFiltrados = productosPorCategoria.get(categoriaSeleccionada);
 
-	        server.agregarHistorial(usuarioLogueado.getId(), idProducto);
-	        System.out.println("¡Compra realizada!");
+        System.out.println("Productos en la categoría: " + traducirCategoria(categoriaSeleccionada));
+        for (Map<String, Object> producto : productosFiltrados) {
+            System.out.println("ID: " + producto.get("id"));
+            System.out.println("Nombre: " + producto.get("title"));
+            System.out.println("Precio: $" + producto.get("price"));
+            System.out.println("Rating: " + producto.get("rate") + " (" + producto.get("count") + " valoraciones)");
+            System.out.println("Descripción: " + producto.get("description"));
+            System.out.println("-------------------------");
+        }
 
-	        // Mostrar recomendaciones
-	        Map<Integer, Map<String, Object>> productosMap = new HashMap<>();
-	        for (Object obj : productos) {
-	            @SuppressWarnings("unchecked")
-	            Map<String, Object> producto = (Map<String, Object>) obj;
-	            productosMap.put((Integer) producto.get("id"), producto);
-	        }
+        int idProducto = -1;
+        Map<String, Object> productoSeleccionado = null;
 
-	        ArrayList<Persona> personas = server.getPersonasQueCompraronProducto(idProducto);
-	        personas.removeIf(p -> p.getId() == usuarioLogueado.getId());
+        while (productoSeleccionado == null) {
+            System.out.print("Ingrese el ID del producto a comprar: ");
+            try {
+                idProducto = Integer.parseInt(scanner.nextLine());
 
-	        Map<Integer, Map<String, Object>> recomendaciones = new HashMap<>();
+                for (Map<String, Object> prod : productosFiltrados) {
+                    if ((Integer) prod.get("id") == idProducto) {
+                        productoSeleccionado = prod;
+                        break;
+                    }
+                }
 
-	        for (Persona p : personas) {
-	            ArrayList<Historial> historial = server.getHistorialPorUsuario(p.getId());
-	            for (int i = historial.size() - 1; i >= 0; i--) {
-	                int productoId = historial.get(i).getIdProducto();
-	                if (productoId != idProducto && productosMap.containsKey(productoId)) {
-	                    recomendaciones.put(productoId, productosMap.get(productoId));
-	                    break; // solo el último producto diferente
-	                }
-	            }
-	        }
+                if (productoSeleccionado == null) {
+                    System.out.println("ID no válido. Por favor, seleccione un ID de los productos listados.");
+                }
 
-		if (recomendaciones.isEmpty()) {
-   		System.out.println("Nadie más ha comprado este producto aún.");
-    
-   		 
-    		Map<String, Object> productoComprado = productosMap.get(idProducto);
-    		String categoria = (String) productoComprado.get("category");
+            } catch (NumberFormatException e) {
+                System.out.println("Entrada inválida. Debe ingresar un número.");
+            }
+        }
 
-    		System.out.println("Recomendaciones basadas en categoría (" + categoria + "):");
+        server.agregarHistorial(usuarioLogueado.getId(), idProducto);
+        System.out.println("¡Compra realizada!");
 
-   		for (Map<String, Object> producto : productosMap.values()) {
-       			int prodId = (Integer) producto.get("id");
-        		if (prodId != idProducto && categoria.equals(producto.get("category"))) {
-            		System.out.println("ID: " + producto.get("id"));
-            		System.out.println("Nombre: " + producto.get("title"));
-            		System.out.println("Precio: $" + producto.get("price"));
-            		System.out.println("-------------------------");
-        		}
-    		}
-		} else {
-    			System.out.println("Personas que compraron este producto también compraron:");
-    			recomendaciones.values().forEach(producto -> {
-        			System.out.println("ID: " + producto.get("id"));
-        			System.out.println("Nombre: " + producto.get("title"));
-        			System.out.println("Precio: $" + producto.get("price"));
-        			System.out.println("-------------------------");
-    			});
-		}
+        Map<Integer, Map<String, Object>> productosMap = new HashMap<>();
+        for (Object obj : productos) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> producto = (Map<String, Object>) obj;
+            productosMap.put((Integer) producto.get("id"), producto);
+        }
 
+        ArrayList<Persona> personas = server.getPersonasQueCompraronProducto(idProducto);
+        personas.removeIf(p -> p.getId() == usuarioLogueado.getId());
 
-	        System.out.println("¿Desea seguir comprando? (s/n)");
-	        if (scanner.nextLine().equalsIgnoreCase("s")) {
-	            comprarProducto(scanner);
-	        }
-	    }
+        Map<Integer, Map<String, Object>> recomendaciones = new HashMap<>();
+
+        for (Persona p : personas) {
+            ArrayList<Historial> historial = server.getHistorialPorUsuario(p.getId());
+            for (int i = historial.size() - 1; i >= 0; i--) {
+                int productoId = historial.get(i).getIdProducto();
+                if (productoId != idProducto && productosMap.containsKey(productoId)) {
+                    recomendaciones.put(productoId, productosMap.get(productoId));
+                    break;
+                }
+            }
+        }
+
+        if (recomendaciones.isEmpty()) {
+            System.out.println("Nadie más ha comprado este producto aún.");
+            Map<String, Object> productoComprado = productosMap.get(idProducto);
+            String categoria = (String) productoComprado.get("category");
+
+            System.out.println("Recomendaciones basadas en categoría (" + traducirCategoria(categoria) + "):");
+
+            for (Map<String, Object> producto : productosMap.values()) {
+                int prodId = (Integer) producto.get("id");
+                if (prodId != idProducto && categoria.equals(producto.get("category"))) {
+                    System.out.println("ID: " + producto.get("id"));
+                    System.out.println("Nombre: " + producto.get("title"));
+                    System.out.println("Precio: $" + producto.get("price"));
+                    System.out.println("-------------------------");
+                }
+            }
+        } else {
+            System.out.println("Personas que compraron este producto también compraron:");
+            recomendaciones.values().forEach(producto -> {
+                System.out.println("ID: " + producto.get("id"));
+                System.out.println("Nombre: " + producto.get("title"));
+                System.out.println("Precio: $" + producto.get("price"));
+                System.out.println("-------------------------");
+            });
+        }
+
+        System.out.println("¿Desea seguir comprando? (s/n)");
+        if (scanner.nextLine().equalsIgnoreCase("s")) {
+            comprarProducto(scanner);
+        }
+    }
+
 
     public void mostrarPersonas() throws RemoteException {
         ArrayList<Persona> personas = server.getPersonas();
@@ -153,30 +185,27 @@ public class Client {
     }
 
     public void mostrarProductos(Scanner scanner) throws RemoteException {
-    	Object[] productos = server.getProductos();
+        Object[] productos = server.getProductos();
 
-    	for (Object obj : productos) {
-    	    @SuppressWarnings("unchecked")
-			Map<String, Object> producto = (Map<String, Object>) obj;
-    	    System.out.println("ID: "+ producto.get("id"));
-    	    System.out.println("Nombre: " + producto.get("title"));
-    	    System.out.println("Precio: $" + producto.get("price"));
-    	    System.out.println("Categoría: " + producto.get("category"));
-    	    System.out.println("Rating: " + producto.get("rate") + " (" + producto.get("count") + " valoraciones)");
-    	    System.out.println("Descripción: " + producto.get("description"));
-    	    System.out.println("-------------------------");
-    	}
+        for (Object obj : productos) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> producto = (Map<String, Object>) obj;
+            System.out.println("ID: " + producto.get("id"));
+            System.out.println("Nombre: " + producto.get("title"));
+            System.out.println("Precio: $" + producto.get("price"));
+            System.out.println("Categoría: " + traducirCategoria((String) producto.get("category")));
+            System.out.println("Rating: " + producto.get("rate") + " (" + producto.get("count") + " valoraciones)");
+            System.out.println("Descripción: " + producto.get("description"));
+            System.out.println("-------------------------");
+        }
     }
-    
-    
-    
 
     public void iniciarSesion(Scanner scanner) throws RemoteException {
-    	
-    	if (usuarioLogueado != null) {
+        if (usuarioLogueado != null) {
             System.out.println("Ya has iniciado sesión como " + usuarioLogueado.getNombre());
             return;
         }
+
         System.out.print("Correo: ");
         String correo = scanner.nextLine();
 
@@ -192,7 +221,7 @@ public class Client {
             System.out.println("Correo o contraseña incorrectos.");
         }
     }
-    
+
     public void mostrarHistorialDeUsuario() throws RemoteException {
         if (usuarioLogueado == null) {
             System.out.println("Debe iniciar sesión primero.");
@@ -211,7 +240,7 @@ public class Client {
                 if ((int) producto.get("id") == idProducto) {
                     System.out.println("Nombre: " + producto.get("title"));
                     System.out.println("Precio: $" + producto.get("price"));
-                    System.out.println("Categoría: " + producto.get("category"));
+                    System.out.println("Categoría: " + traducirCategoria((String) producto.get("category")));
                     System.out.println("Rating: " + producto.get("rate") + " (" + producto.get("count") + " valoraciones)");
                     System.out.println("Descripción: " + producto.get("description"));
                     System.out.println("-------------------------");
@@ -220,8 +249,4 @@ public class Client {
             }
         }
     }
-
-
-
-
 }
