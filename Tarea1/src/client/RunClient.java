@@ -9,7 +9,14 @@ public class RunClient {
             cliente.startCliente();
             Scanner scanner = new Scanner(System.in);
 
+            // Mensaje de bienvenida
+            System.out.println("=======================================");
+            System.out.println("  ¡Bienvenido a la Tienda de Productos!");
+            System.out.println("     Electrónica, Ropa, Joyería y más");
+            System.out.println("=======================================\n");
+
             while (true) {
+                System.out.println("Menú principal:");
                 System.out.println("1. Iniciar sesión");
                 System.out.println("2. Ver productos");
                 System.out.println("3. Ver historial");
@@ -27,11 +34,16 @@ public class RunClient {
                     case 3: cliente.mostrarHistorialDeUsuario(); break;
                     case 4: cliente.mostrarPersonas(); break;
                     case 5: cliente.comprarProducto(scanner); break;
-                    case 6: System.exit(0);
+                    case 6: 
+                        System.out.println("Gracias por visitar la tienda. ¡Hasta pronto!");
+                        System.exit(0);
                     default: System.out.println("Opción inválida");
                 }
+
+                System.out.println(); // Espacio entre interacciones
             }
         } catch (Exception e) {
+            System.out.println("Error al iniciar el cliente: " + e.getMessage());
             e.printStackTrace();
         }
     }
