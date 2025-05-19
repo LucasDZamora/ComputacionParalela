@@ -50,7 +50,6 @@ public class ServerImpl implements InterfazDeServer{
             connection = DriverManager.getConnection(url, username, password_BD);
             query = connection.createStatement();
 
-            // Cargar usuarios
             ResultSet rsUsuarios = query.executeQuery("SELECT * FROM usuario");
             while (rsUsuarios.next()) {
                 Bd_personas.add(new Persona(
@@ -62,7 +61,6 @@ public class ServerImpl implements InterfazDeServer{
                 ));
             }
 
-            // Cargar historial
             ResultSet rsHistorial = query.executeQuery("SELECT * FROM historial");
             while (rsHistorial.next()) {
                 Bd_historial.add(new Historial(
@@ -72,7 +70,6 @@ public class ServerImpl implements InterfazDeServer{
                 ));
             }
 
-            // Construir mapa de productos
             for (Historial h : Bd_historial) {
                 int idProducto = h.getIdProducto();
                 Persona persona = findPersonaById(h.getIdUsuario());
@@ -95,7 +92,6 @@ public class ServerImpl implements InterfazDeServer{
         return null;
     }
 
-    // Resto de métodos implementados...
 
     @Override
     public void agregarHistorial(int idUsuario, int idProducto) throws RemoteException {
@@ -103,18 +99,15 @@ public class ServerImpl implements InterfazDeServer{
         PreparedStatement statement = null;
         
         try {
-            // 1. Conexión a la BD
             String url = "jdbc:mysql://localhost:3306/tienda";
             connection = DriverManager.getConnection(url, "root", "");
             
-            // 2. Insertar en SQL
             String sql = "INSERT INTO historial (id_usuario, id_producto) VALUES (?, ?)";
             statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             statement.setInt(1, idUsuario);
             statement.setInt(2, idProducto);
             statement.executeUpdate();
             
-            // 3. Actualizar mapa en memoria
             ResultSet generatedKeys = statement.getGeneratedKeys();
             if (generatedKeys.next()) {
                 int newId = generatedKeys.getInt(1);
@@ -130,7 +123,6 @@ public class ServerImpl implements InterfazDeServer{
         } catch (SQLException e) {
             throw new RemoteException("Error al guardar en BD: " + e.getMessage());
         } finally {
-            // Cerrar recursos
             try { if (statement != null) statement.close(); } catch (SQLException e) {}
             try { if (connection != null) connection.close(); } catch (SQLException e) {}
         }
@@ -138,7 +130,6 @@ public class ServerImpl implements InterfazDeServer{
 
     @Override
     public ArrayList<Persona> getPersonasQueCompraronProducto(int idProducto) throws RemoteException {
-        // Filtrar solo usuarios distintos al actual si es necesario
         return new ArrayList<>(productoClientesMap.getOrDefault(idProducto, new ArrayList<>()));
     }
 
@@ -208,7 +199,7 @@ public class ServerImpl implements InterfazDeServer{
 	            productos.add(producto);
 	        }
 
-	        return productos.toArray(); // Devuelve el arreglo de mapas
+	        return productos.toArray(); 
 	    } catch (Exception e) {
 	        e.printStackTrace();
 	    }

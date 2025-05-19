@@ -40,7 +40,7 @@ public class RunClient {
                     default: System.out.println("Opción inválida");
                 }
 
-                System.out.println(); // Espacio entre interacciones
+                System.out.println(); 
             }
         } catch (Exception e) {
             System.out.println("Error al iniciar el cliente: " + e.getMessage());
