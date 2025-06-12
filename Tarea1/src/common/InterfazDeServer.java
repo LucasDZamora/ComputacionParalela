@@ -13,4 +13,5 @@ public interface InterfazDeServer extends Remote {
     Persona login(String correo, String contraseña) throws RemoteException;
     void agregarHistorial(int idUsuario, int idProducto) throws RemoteException;
     ArrayList<Persona> getPersonasQueCompraronProducto(int idProducto) throws RemoteException;
+    public int heartbeat() throws RemoteException;
 }

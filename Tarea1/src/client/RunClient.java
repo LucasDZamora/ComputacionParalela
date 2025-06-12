@@ -6,7 +6,6 @@ public class RunClient {
     public static void main(String[] args) {
         try {
             Client cliente = new Client();
-            cliente.startCliente();
             Scanner scanner = new Scanner(System.in);
 
             // Mensaje de bienvenida

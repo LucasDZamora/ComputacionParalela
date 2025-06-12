@@ -16,12 +16,76 @@ import common.Persona;
 public class Client {
     private InterfazDeServer server;
     private Persona usuarioLogueado = null;
+    private final int primaryPort = 1009;
+    private final int backupPort = 1010;
+    private boolean connectedToPrimary = true;
+    private boolean running = true;
+    private final String host = "localhost"; // o IP del servidor
 
-    public Client() {}
+    public Client() throws RemoteException, NotBoundException {
+        startCliente();
+        startHeartbeat();
+    }
 
-    public void startCliente() throws RemoteException, NotBoundException {
-        Registry registry = LocateRegistry.getRegistry("localhost", 1009);
-        server = (InterfazDeServer) registry.lookup("server");
+    private void startHeartbeat() {
+        new Thread(() -> {
+            while (running) {
+                try {
+                    Thread.sleep(1000);
+                    server.heartbeat();
+                } catch (RemoteException e) {
+                    if (connectedToPrimary) {
+                        System.err.println("Heartbeat fallido, cambiando al servidor de respaldo...");
+                        cambiarSvRespaldo();
+                    } else {
+                        System.err.println("Heartbeat fallido en el servidor de respaldo. Terminando ejecución...");
+                        terminarEjecucion();
+                    }
+                } catch (InterruptedException e) {
+                    System.err.println("Heartbeat interrumpido: " + e.getMessage());
+                }
+            }
+        }).start();
+    }
+
+    private void startCliente() throws RemoteException, NotBoundException {
+        server = establecerConexion(host, primaryPort, "server");
+
+        if (server == null) {
+            System.out.println("No se pudo conectar al servidor primario.");
+            System.out.println("Intentando conectar al servidor de respaldo...");
+            cambiarSvRespaldo();
+        } else {
+            connectedToPrimary = true;
+            System.out.println("Conectado al servidor **primario**.");
+        }
+
+        if (server == null) {
+            throw new RemoteException("No se pudo conectar a ningún servidor.");
+        }
+    }
+
+
+    private void cambiarSvRespaldo() {
+        server = establecerConexion(host, backupPort, "server");
+        if (server == null) {
+            System.err.println("No se pudo conectar al servidor de respaldo.");
+            terminarEjecucion();
+        } else {
+            System.out.println("Conectado al servidor **de respaldo**.");
+            connectedToPrimary = false;
+        }
+    }
+
+
+    private InterfazDeServer establecerConexion(String host, int port, String nombre) {
+        try {
+            Registry registry = LocateRegistry.getRegistry(host, port);
+            return (InterfazDeServer) registry.lookup(nombre);
+        } catch (Exception e) {
+            System.err.println("Error al conectar con " + nombre + " en puerto " + port + ": " + e.getMessage());
+            return null;
+        }
     }
 
     private String traducirCategoria(String categoriaEnIngles) {
@@ -84,6 +148,12 @@ public class Client {
         mostrarProdCategoria(scanner);
     }
 
+    private void terminarEjecucion() {
+        running = false;
+        System.err.println("Terminando ejecución debido a la falta de respuesta del servidor.");
+        System.exit(1);
+    }
+
     public void comprarProducto(Scanner scanner) throws RemoteException {
         if (usuarioLogueado == null) {
             System.out.println("Debe iniciar sesión primero.");
@@ -141,7 +211,7 @@ public class Client {
             String categoria = (String) productoSeleccionado.get("category");
             System.out.println("Recomendaciones basadas en categoría (" + traducirCategoria(categoria) + "):");
             productosMap.values().stream()
-                .filter(prod -> !prod.get("category").equals(categoria))
+                .filter(prod -> prod.get("category").equals(categoria))
                 .forEach(prod -> {
                     System.out.println("ID: " + prod.get("id"));
                     System.out.println("Nombre: " + prod.get("title"));

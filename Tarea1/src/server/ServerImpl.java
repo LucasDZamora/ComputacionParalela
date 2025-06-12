@@ -40,7 +40,6 @@ public class ServerImpl implements InterfazDeServer{
     private void conectarBD() {
         Connection connection = null;
         Statement query = null;
-        ResultSet resultados = null;
 
         try {
             String url = "jdbc:mysql://localhost:3306/tienda";
@@ -229,6 +228,12 @@ public class ServerImpl implements InterfazDeServer{
 	        }
 	    }
 	    return null; // Login fallido
+	}
+	
+	@Override
+	public int heartbeat() throws RemoteException {
+		// TODO Auto-generated method stub
+		return 0;
 	}
 
 
