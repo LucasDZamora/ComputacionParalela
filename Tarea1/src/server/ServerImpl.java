@@ -30,7 +30,8 @@ public class ServerImpl implements InterfazDeServer{
     private ArrayList<Persona> Bd_personas = new ArrayList<>();
     private ArrayList<Historial> Bd_historial = new ArrayList<>();
     private HashMap<Integer, ArrayList<Persona>> productoClientesMap = new HashMap<>();
-
+    private boolean inUse;
+    
     public ServerImpl() throws RemoteException {
         conectarBD();
         getProductos();
@@ -121,7 +122,7 @@ public class ServerImpl implements InterfazDeServer{
             
         } catch (SQLException e) {
             throw new RemoteException("Error al guardar en BD: " + e.getMessage());
-        } finally {
+        } {
             try { if (statement != null) statement.close(); } catch (SQLException e) {}
             try { if (connection != null) connection.close(); } catch (SQLException e) {}
         }
@@ -145,8 +146,80 @@ public class ServerImpl implements InterfazDeServer{
 	}
 
 	@Override
-	public void agregarPersona(String nombre, int edad) throws RemoteException {
+	public boolean agregarPersona(String nombre, String apellido, String correo, String contraseña) throws RemoteException {
+
+	    while (true) {
+	        if (requestMutex()) {
+	            System.out.println("Tengo permiso para iniciar la sección crítica.");
+	            break;
+	        }
+	        try {
+	            Thread.sleep(2000);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	        System.out.println("Aún no tengo permiso...");
+	    }
+
+	    Connection connection = null;
+	    PreparedStatement checkStmt = null;
+	    PreparedStatement insertStmt = null;
+
+	    try {
+	        String url = "jdbc:mysql://localhost:3306/tienda";
+	        String username = "root";
+	        String password = "";
+
+	        connection = DriverManager.getConnection(url, username, password);
+
+	        // Verificar si el correo ya existe
+	        String checkSql = "SELECT COUNT(*) FROM usuario WHERE correo = ?";
+	        checkStmt = connection.prepareStatement(checkSql);
+	        checkStmt.setString(1, correo);
+	        ResultSet rs = checkStmt.executeQuery();
+	        if (rs.next() && rs.getInt(1) > 0) {
+	            System.out.println("El correo ya está registrado. No se puede agregar el usuario.");
+	            return false;
+	        }
+
+	        // Si el correo no existe, proceder con el insert
+	        String insertSql = "INSERT INTO usuario (nombre, apellido, contraseña, correo) VALUES (?, ?, ?, ?)";
+	        insertStmt = connection.prepareStatement(insertSql);
+	        insertStmt.setString(1, nombre);
+	        insertStmt.setString(2, apellido);
+	        insertStmt.setString(3, contraseña);
+	        insertStmt.setString(4, correo);
+	        insertStmt.executeUpdate();
+
+	        int duracionSleep = 8000;
+	        System.out.println("Iniciando inserción. Tiempo estimado: " + duracionSleep + " ms.");
+
+	        try {
+	            Thread.sleep(duracionSleep);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+
+	        return true;
+
+	    } catch (SQLException e) {
+	        System.out.println("Insert fallido! No se pudo agregar al usuario.");
+	        return false;
+
+	    } finally {
+	        releaseMutex();
+	        System.out.println("Inserción finalizada para: " + nombre + ".");
+
+	        try {
+	            if (checkStmt != null) checkStmt.close();
+	            if (insertStmt != null) insertStmt.close();
+	            if (connection != null) connection.close();
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+	    }
 	}
+
 
 
 	@Override
@@ -235,11 +308,21 @@ public class ServerImpl implements InterfazDeServer{
 		// TODO Auto-generated method stub
 		return 0;
 	}
-
-
-
-
-
-
-
+	
+	@Override
+	public synchronized boolean requestMutex() throws RemoteException {
+		// TODO Auto-generated method stub
+		if(inUse) {
+			return false;
+		} else { 
+			inUse = true;
+			return true;
+		}
+	}
+	
+	@Override
+	public synchronized void releaseMutex() throws RemoteException {
+		// TODO Auto-generated method stub
+		inUse = false;
+	}
 }

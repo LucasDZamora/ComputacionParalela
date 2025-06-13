@@ -8,7 +8,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import common.Historial;
 import common.InterfazDeServer;
 import common.Persona;
@@ -31,12 +32,21 @@ public class Client {
         new Thread(() -> {
             while (running) {
                 try {
+                	// Se manda un heartbeat cada 5 segundos
                     Thread.sleep(1000);
-                    server.heartbeat();
+                    // Si estamos conectados al sv principal le mandamos una señal
+                    if (connectedToPrimary) {
+                        server.heartbeat();
+                    }
+                    // En caso de no estar conectados al prinicpal le mandamos una señal al respaldo
+                    else {
+                        // Comprobar conexión al servidor de respaldo
+                        server.heartbeat();
+                    }
                 } catch (RemoteException e) {
                     if (connectedToPrimary) {
                         System.err.println("Heartbeat fallido, cambiando al servidor de respaldo...");
-                        cambiarSvRespaldo();
+                        cambiarAServerRespaldo();
                     } else {
                         System.err.println("Heartbeat fallido en el servidor de respaldo. Terminando ejecución...");
                         terminarEjecucion();
@@ -54,7 +64,7 @@ public class Client {
         if (server == null) {
             System.out.println("No se pudo conectar al servidor primario.");
             System.out.println("Intentando conectar al servidor de respaldo...");
-            cambiarSvRespaldo();
+            cambiarAServerRespaldo();
         } else {
             connectedToPrimary = true;
             System.out.println("Conectado al servidor **primario**.");
@@ -66,7 +76,7 @@ public class Client {
     }
 
 
-    private void cambiarSvRespaldo() {
+    private void cambiarAServerRespaldo() {
         server = establecerConexion(host, backupPort, "server");
         if (server == null) {
             System.err.println("No se pudo conectar al servidor de respaldo.");
@@ -76,6 +86,61 @@ public class Client {
             connectedToPrimary = false;
         }
     }
+    
+    public void agregarPersona(Scanner scanner) throws RemoteException {
+        System.out.print("Ingrese nombre: ");
+        String nombre = scanner.nextLine();
+
+        System.out.print("Ingrese apellido: ");
+        String apellido = scanner.nextLine();
+
+        String correo;
+        String emailRegex = "^[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,}$";
+        Pattern pattern = Pattern.compile(emailRegex);
+
+        while (true) {
+            System.out.print("Ingrese correo: ");
+            correo = scanner.nextLine();
+
+            Matcher matcher = pattern.matcher(correo);
+            if (matcher.matches()) {
+                break; // correo válido, salir del ciclo
+            } else {
+                System.out.println("Correo inválido. Por favor, ingrese un correo con formato correcto.");
+            }
+        }
+
+        System.out.print("Ingrese contraseña: ");
+        String contraseña = scanner.nextLine();
+        
+        try {
+        	boolean agregada = server.agregarPersona(nombre, apellido, correo, contraseña);
+            if (agregada) {
+                System.out.println("Persona agregada exitosamente.");
+            } else {
+                System.out.println("No se pudo agregar la persona. Ya existe o hubo un error.");
+            }
+        } catch (RemoteException e) {
+            comprobarConexion();
+            if (server != null) {
+                try {
+                    server.agregarPersona(nombre, apellido, correo, contraseña);
+                } catch (RemoteException ex) {
+                    System.out.println("No se pudo agregar la persona después de reconectar: " + ex.getMessage());
+                }
+            } else {
+                System.out.println("No se pudo agregar la persona: el servidor no está disponible.");
+            }
+        }
+    }
+    
+    private void comprobarConexion() {
+        if (connectedToPrimary) {
+            System.err.println("Perdida la conexión con el servidor principal, reconectando al servidor de respaldo...");
+            cambiarAServerRespaldo();
+        }
+    }
+
 
 
     private InterfazDeServer establecerConexion(String host, int port, String nombre) {
