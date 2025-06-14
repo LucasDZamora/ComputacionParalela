@@ -87,7 +87,7 @@ public class Client {
         }
     }
     
-    public void agregarPersona(Scanner scanner) throws RemoteException {
+    public void registrarse(Scanner scanner) throws RemoteException {
         System.out.print("Ingrese nombre: ");
         String nombre = scanner.nextLine();
 
@@ -357,4 +357,70 @@ public class Client {
             }
         }
     }
+    public void modificarDatos(Scanner scanner) throws RemoteException {
+        if (usuarioLogueado == null) {
+            System.out.println("Debe iniciar sesión primero.");
+            return;
+        }
+
+        System.out.println("Modificar datos de usuario:");
+        System.out.println("Nombre actual: " + usuarioLogueado.getNombre());
+        System.out.print("Nuevo nombre (dejar vacío para mantener): ");
+        String nuevoNombre = scanner.nextLine();
+        if (!nuevoNombre.isEmpty()) {
+            usuarioLogueado.setNombre(nuevoNombre);
+        }
+
+        System.out.println("Apellido actual: " + usuarioLogueado.getApellido());
+        System.out.print("Nuevo apellido (dejar vacío para mantener): ");
+        String nuevoApellido = scanner.nextLine();
+        if (!nuevoApellido.isEmpty()) {
+            usuarioLogueado.setApellido(nuevoApellido);
+        }
+
+        System.out.println("Correo actual: " + usuarioLogueado.getCorreo());
+        System.out.print("Nuevo correo (dejar vacío para mantener): ");
+        String nuevoCorreo = scanner.nextLine();
+        if (!nuevoCorreo.isEmpty()) {
+            usuarioLogueado.setCorreo(nuevoCorreo);
+        }
+
+        System.out.println("Contraseña actual: (oculto)");
+        System.out.print("Nueva contraseña (dejar vacío para mantener): ");
+        String nuevaContraseña = scanner.nextLine();
+        if (!nuevaContraseña.isEmpty()) {
+            usuarioLogueado.setContraseña(nuevaContraseña);
+        }
+
+        boolean actualizado = server.actualizarUsuario(usuarioLogueado);
+        if (actualizado) {
+            System.out.println("Datos actualizados correctamente.");
+        } else {
+            System.out.println("Error al actualizar los datos.");
+        }
+    }
+    
+    public void borrarCuenta(Scanner scanner) throws RemoteException {
+        if (usuarioLogueado == null) {
+            System.out.println("Debe iniciar sesión primero.");
+            return;
+        }
+
+        System.out.print("¿Está seguro que desea borrar su cuenta? (s/n): ");
+        String confirmacion = scanner.nextLine();
+
+        if (confirmacion.equalsIgnoreCase("s")) {
+            boolean eliminado = server.borrarUsuario(usuarioLogueado.getId());
+            if (eliminado) {
+                System.out.println("Cuenta eliminada correctamente.");
+                usuarioLogueado = null;
+            } else {
+                System.out.println("Ocurrió un error al intentar eliminar la cuenta.");
+            }
+        } else {
+            System.out.println("Cancelado.");
+        }
+    }
+
+
 }

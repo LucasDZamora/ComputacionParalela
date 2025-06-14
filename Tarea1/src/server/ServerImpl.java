@@ -325,4 +325,136 @@ public class ServerImpl implements InterfazDeServer{
 		// TODO Auto-generated method stub
 		inUse = false;
 	}
+
+		@Override
+		
+	public boolean actualizarUsuario(Persona persona) throws RemoteException {
+	    
+	    // Si quieres proteger con mutex (opcional, dependiendo si lo usas en los otros métodos)
+	    while (true) {
+	        if (requestMutex()) {
+	            System.out.println("Tengo permiso para actualizar usuario.");
+	            break;
+	        }
+	        try {
+	            Thread.sleep(1000);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	
+	    Connection connection = null;
+	    PreparedStatement statement = null;
+	
+	    try {
+	        String url = "jdbc:mysql://localhost:3306/tienda";
+	        String username = "root";
+	        String password_BD = "";
+	
+	        connection = DriverManager.getConnection(url, username, password_BD);
+	
+	        String sql = "UPDATE usuario SET nombre=?, apellido=?, correo=?, contraseña=? WHERE id=?";
+	        statement = connection.prepareStatement(sql);
+	        statement.setString(1, persona.getNombre());
+	        statement.setString(2, persona.getApellido());
+	        statement.setString(3, persona.getCorreo());
+	        statement.setString(4, persona.getContraseña());
+	        statement.setInt(5, persona.getId());
+	
+	        int filasActualizadas = statement.executeUpdate();
+	
+	        // Actualizamos también los datos en memoria (Bd_personas)
+	        if (filasActualizadas > 0) {
+	            // buscamos el objeto en memoria y lo actualizamos
+	            Persona personaEnMemoria = findPersonaById(persona.getId());
+	            if (personaEnMemoria != null) {
+	                personaEnMemoria.setNombre(persona.getNombre());
+	                personaEnMemoria.setApellido(persona.getApellido());
+	                personaEnMemoria.setCorreo(persona.getCorreo());
+	                personaEnMemoria.setContraseña(persona.getContraseña());
+	            }
+	            return true;
+	        } else {
+	            return false;
+	        }
+	
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	        return false;
+	
+	    } finally {
+	        releaseMutex();
+	        try {
+	            if (statement != null) statement.close();
+	            if (connection != null) connection.close();
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	}
+		
+
+	@Override
+	public boolean borrarUsuario(int idUsuario) throws RemoteException {
+	    
+	    while (true) {
+	        if (requestMutex()) {
+	            System.out.println("Tengo permiso para borrar usuario.");
+	            break;
+	        }
+	        try {
+	            Thread.sleep(1000);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	
+	    Connection connection = null;
+	    PreparedStatement statement = null;
+	
+	    try {
+	        String url = "jdbc:mysql://localhost:3306/tienda";
+	        String username = "root";
+	        String password_BD = "";
+	
+	        connection = DriverManager.getConnection(url, username, password_BD);
+	
+	        // Primero borramos su historial (si quieres limpiar bien la BD)
+	        String deleteHistorial = "DELETE FROM historial WHERE id_usuario=?";
+	        statement = connection.prepareStatement(deleteHistorial);
+	        statement.setInt(1, idUsuario);
+	        statement.executeUpdate();
+	        statement.close();
+	
+	        // Ahora borramos el usuario
+	        String deleteUsuario = "DELETE FROM usuario WHERE id=?";
+	        statement = connection.prepareStatement(deleteUsuario);
+	        statement.setInt(1, idUsuario);
+	        int filasBorradas = statement.executeUpdate();
+	
+	        // Borramos también de la memoria
+	        Bd_personas.removeIf(p -> p.getId() == idUsuario);
+	        Bd_historial.removeIf(h -> h.getIdUsuario() == idUsuario);
+	        
+	        // También actualizar el productoClientesMap
+	        productoClientesMap.forEach((k, lista) -> lista.removeIf(p -> p.getId() == idUsuario));
+	
+	        return filasBorradas > 0;
+	
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	        return false;
+	    } finally {
+	        releaseMutex();
+	        try {
+	            if (statement != null) statement.close();
+	            if (connection != null) connection.close();
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+	    }
+	}
+
+
+
 }
