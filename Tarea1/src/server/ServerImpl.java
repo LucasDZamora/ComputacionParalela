@@ -136,7 +136,33 @@ public class ServerImpl implements InterfazDeServer{
 	@Override
 	public ArrayList<common.Persona> getPersonas() throws RemoteException {
 		// TODO Auto-generated method stub
-		return Bd_personas;
+        while (true) {
+            if (requestMutex()) {
+                System.out.println("Tengo permiso para iniciar la sección crítica.");
+                break;
+            }
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Aún no tengo permiso...");
+        }
+
+        int duracionSleep = 8000;
+        System.out.println("Obteniendo todos los usuarios. Tiempo estimado: " + duracionSleep + " ms.");
+
+        try {
+            Thread.sleep(duracionSleep);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        try {
+        	return Bd_personas;
+        } finally {
+            releaseMutex();
+        }
 	}
 
 	@Override
@@ -144,6 +170,17 @@ public class ServerImpl implements InterfazDeServer{
 		// TODO Auto-generated method stub
 		return null;
 	}
+	
+	@Override
+	public Persona buscarUsuarioPorCorreo(String correo) throws RemoteException {
+	    for (Persona p : Bd_personas) {
+	        if (p.getCorreo().equalsIgnoreCase(correo)) {
+	            return p;
+	        }
+	    }
+	    return null; 
+	}
+
 
 	@Override
 	public boolean agregarPersona(String nombre, String apellido, String correo, String contraseña) throws RemoteException {
@@ -184,12 +221,19 @@ public class ServerImpl implements InterfazDeServer{
 
 	        // Si el correo no existe, proceder con el insert
 	        String insertSql = "INSERT INTO usuario (nombre, apellido, contraseña, correo) VALUES (?, ?, ?, ?)";
-	        insertStmt = connection.prepareStatement(insertSql);
+	        insertStmt = connection.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS);
 	        insertStmt.setString(1, nombre);
 	        insertStmt.setString(2, apellido);
 	        insertStmt.setString(3, contraseña);
 	        insertStmt.setString(4, correo);
 	        insertStmt.executeUpdate();
+	        
+	        ResultSet generatedKeys = insertStmt.getGeneratedKeys();
+	        if (generatedKeys.next()) {
+	            int nuevoId = generatedKeys.getInt(1); 
+	            Persona nuevaPersona = new Persona(nuevoId, nombre, apellido, contraseña, correo);
+	            Bd_personas.add(nuevaPersona); 
+	        }
 
 	        int duracionSleep = 8000;
 	        System.out.println("Iniciando inserción. Tiempo estimado: " + duracionSleep + " ms.");
@@ -310,6 +354,72 @@ public class ServerImpl implements InterfazDeServer{
 	}
 	
 	@Override
+	public Persona getUsuarioPorId(int idUsuario) throws RemoteException {
+	    while (true) {
+	        if (requestMutex()) {
+	            System.out.println("Tengo permiso para iniciar la sección crítica.");
+	            break;
+	        }
+	        try {
+	            Thread.sleep(2000);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+	        System.out.println("Aún no tengo permiso...");
+	    }
+
+	    Connection connection = null;
+	    PreparedStatement statement = null;
+	    ResultSet rs = null;
+
+	    try {
+	        String url = "jdbc:mysql://localhost:3306/tienda";
+	        String username = "root";
+	        String password_BD = "";
+
+	        connection = DriverManager.getConnection(url, username, password_BD);
+
+	        String sql = "SELECT * FROM usuario WHERE id = ?";
+	        statement = connection.prepareStatement(sql);
+	        statement.setInt(1, idUsuario);
+	        rs = statement.executeQuery();
+	        
+	        int duracionSleep = 8000;
+	        System.out.println("Obteniendo usuario. Tiempo estimado: " + duracionSleep + " ms.");
+
+	        try {
+	            Thread.sleep(duracionSleep);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+
+	        if (rs.next()) {
+	            return new Persona(
+	                rs.getInt("id"),
+	                rs.getString("nombre"),
+	                rs.getString("apellido"),
+	                rs.getString("contraseña"),
+	                rs.getString("correo")
+	            );
+	        } else {
+	            return null;
+	        }
+
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	        return null;
+
+	    } finally {
+	        try { if (rs != null) rs.close(); } catch (SQLException e) { e.printStackTrace(); }
+	        try { if (statement != null) statement.close(); } catch (SQLException e) { e.printStackTrace(); }
+	        try { if (connection != null) connection.close(); } catch (SQLException e) { e.printStackTrace(); }
+	        releaseMutex();
+	    }
+	}
+
+
+	
+	@Override
 	public synchronized boolean requestMutex() throws RemoteException {
 		// TODO Auto-generated method stub
 		if(inUse) {
@@ -326,33 +436,31 @@ public class ServerImpl implements InterfazDeServer{
 		inUse = false;
 	}
 
-		@Override
-		
+	@Override
 	public boolean actualizarUsuario(Persona persona) throws RemoteException {
-	    
-	    // Si quieres proteger con mutex (opcional, dependiendo si lo usas en los otros métodos)
 	    while (true) {
 	        if (requestMutex()) {
-	            System.out.println("Tengo permiso para actualizar usuario.");
+	            System.out.println("Tengo permiso para iniciar la sección crítica.");
 	            break;
 	        }
 	        try {
-	            Thread.sleep(1000);
+	            Thread.sleep(2000);
 	        } catch (InterruptedException e) {
 	            e.printStackTrace();
 	        }
+	        System.out.println("Aún no tengo permiso...");
 	    }
-	
+
 	    Connection connection = null;
 	    PreparedStatement statement = null;
-	
+
 	    try {
 	        String url = "jdbc:mysql://localhost:3306/tienda";
 	        String username = "root";
 	        String password_BD = "";
-	
+
 	        connection = DriverManager.getConnection(url, username, password_BD);
-	
+
 	        String sql = "UPDATE usuario SET nombre=?, apellido=?, correo=?, contraseña=? WHERE id=?";
 	        statement = connection.prepareStatement(sql);
 	        statement.setString(1, persona.getNombre());
@@ -360,12 +468,19 @@ public class ServerImpl implements InterfazDeServer{
 	        statement.setString(3, persona.getCorreo());
 	        statement.setString(4, persona.getContraseña());
 	        statement.setInt(5, persona.getId());
-	
+
+	        int duracionSleep = 8000;
+	        System.out.println("Actualizando usuario... Tiempo estimado: " + duracionSleep + " ms.");
+	        try {
+	            Thread.sleep(duracionSleep);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+
 	        int filasActualizadas = statement.executeUpdate();
-	
-	        // Actualizamos también los datos en memoria (Bd_personas)
+
 	        if (filasActualizadas > 0) {
-	            // buscamos el objeto en memoria y lo actualizamos
+	            // Actualizar en memoria
 	            Persona personaEnMemoria = findPersonaById(persona.getId());
 	            if (personaEnMemoria != null) {
 	                personaEnMemoria.setNombre(persona.getNombre());
@@ -377,11 +492,11 @@ public class ServerImpl implements InterfazDeServer{
 	        } else {
 	            return false;
 	        }
-	
+
 	    } catch (SQLException e) {
 	        e.printStackTrace();
 	        return false;
-	
+
 	    } finally {
 	        releaseMutex();
 	        try {
@@ -392,55 +507,61 @@ public class ServerImpl implements InterfazDeServer{
 	        }
 	    }
 	}
-		
 
 	@Override
 	public boolean borrarUsuario(int idUsuario) throws RemoteException {
 	    
 	    while (true) {
 	        if (requestMutex()) {
-	            System.out.println("Tengo permiso para borrar usuario.");
+	            System.out.println("Tengo permiso para iniciar la sección crítica.");
 	            break;
 	        }
 	        try {
-	            Thread.sleep(1000);
+	            Thread.sleep(2000);
 	        } catch (InterruptedException e) {
 	            e.printStackTrace();
 	        }
+	        System.out.println("Aún no tengo permiso...");
 	    }
-	
+
 	    Connection connection = null;
 	    PreparedStatement statement = null;
-	
+
 	    try {
 	        String url = "jdbc:mysql://localhost:3306/tienda";
 	        String username = "root";
 	        String password_BD = "";
-	
+
 	        connection = DriverManager.getConnection(url, username, password_BD);
-	
-	        // Primero borramos su historial (si quieres limpiar bien la BD)
+
+	        int duracionSleep = 8000;
+	        System.out.println("Eliminando usuario... Tiempo estimado: " + duracionSleep + " ms.");
+	        try {
+	            Thread.sleep(duracionSleep);
+	        } catch (InterruptedException e) {
+	            e.printStackTrace();
+	        }
+
+	        // Primero borramos su historial
 	        String deleteHistorial = "DELETE FROM historial WHERE id_usuario=?";
 	        statement = connection.prepareStatement(deleteHistorial);
 	        statement.setInt(1, idUsuario);
 	        statement.executeUpdate();
 	        statement.close();
-	
-	        // Ahora borramos el usuario
+
+	        // Luego borramos el usuario
 	        String deleteUsuario = "DELETE FROM usuario WHERE id=?";
 	        statement = connection.prepareStatement(deleteUsuario);
 	        statement.setInt(1, idUsuario);
 	        int filasBorradas = statement.executeUpdate();
-	
-	        // Borramos también de la memoria
+
+	        // Limpiar estructuras en memoria
 	        Bd_personas.removeIf(p -> p.getId() == idUsuario);
 	        Bd_historial.removeIf(h -> h.getIdUsuario() == idUsuario);
-	        
-	        // También actualizar el productoClientesMap
 	        productoClientesMap.forEach((k, lista) -> lista.removeIf(p -> p.getId() == idUsuario));
-	
+
 	        return filasBorradas > 0;
-	
+
 	    } catch (SQLException e) {
 	        e.printStackTrace();
 	        return false;
@@ -454,6 +575,7 @@ public class ServerImpl implements InterfazDeServer{
 	        }
 	    }
 	}
+
 
 
 

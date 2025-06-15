@@ -45,6 +45,7 @@ public class Client {
                     }
                 } catch (RemoteException e) {
                     if (connectedToPrimary) {
+                    	System.err.println();
                         System.err.println("Heartbeat fallido, cambiando al servidor de respaldo...");
                         cambiarAServerRespaldo();
                     } else {
@@ -220,8 +221,7 @@ public class Client {
     }
 
     public void comprarProducto(Scanner scanner) throws RemoteException {
-        if (usuarioLogueado == null) {
-            System.out.println("Debe iniciar sesión primero.");
+        if (!validarExistenciaUsuario()) {
             return;
         }
 
@@ -333,8 +333,7 @@ public class Client {
     }
 
     public void mostrarHistorialDeUsuario() throws RemoteException {
-        if (usuarioLogueado == null) {
-            System.out.println("Debe iniciar sesión primero.");
+        if (!validarExistenciaUsuario()) {
             return;
         }
         int idUsuario = usuarioLogueado.getId();
@@ -357,9 +356,31 @@ public class Client {
             }
         }
     }
-    public void modificarDatos(Scanner scanner) throws RemoteException {
+    
+    private boolean validarExistenciaUsuario() throws RemoteException {
         if (usuarioLogueado == null) {
             System.out.println("Debe iniciar sesión primero.");
+            return false;
+        }
+
+        Persona usuarioEnServidor = server.getUsuarioPorId(usuarioLogueado.getId());
+
+        if (usuarioEnServidor == null) {
+            System.out.println("Su cuenta fue eliminada. Se cerrará la sesión.");
+            usuarioLogueado = null;
+            return false;
+        }
+
+        if (!usuarioLogueado.getCorreo().equals(usuarioEnServidor.getCorreo())) {
+            System.out.println("Se detectaron inconsistencias en los datos. Se cerrará la sesión.");
+            usuarioLogueado = null;
+            return false;
+        }
+        return true;
+    }
+    
+    public void modificarDatos(Scanner scanner) throws RemoteException {
+        if (!validarExistenciaUsuario()) {
             return;
         }
 
@@ -379,10 +400,31 @@ public class Client {
         }
 
         System.out.println("Correo actual: " + usuarioLogueado.getCorreo());
-        System.out.print("Nuevo correo (dejar vacío para mantener): ");
-        String nuevoCorreo = scanner.nextLine();
-        if (!nuevoCorreo.isEmpty()) {
-            usuarioLogueado.setCorreo(nuevoCorreo);
+        String nuevoCorreo;
+        String emailRegex = "^[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,}$";
+        Pattern pattern = Pattern.compile(emailRegex);
+
+        while (true) {
+            System.out.print("Nuevo correo (dejar vacío para mantener): ");
+            nuevoCorreo = scanner.nextLine();
+
+            if (nuevoCorreo.isEmpty()) {
+                break; 
+            }
+
+            Matcher matcher = pattern.matcher(nuevoCorreo);
+            if (!matcher.matches()) {
+                System.out.println("Correo inválido. Por favor, ingrese un correo con formato correcto.");
+                continue;
+            }
+
+            Persona otro = server.buscarUsuarioPorCorreo(nuevoCorreo);
+            if (otro != null && otro.getId() != usuarioLogueado.getId()) {
+                System.out.println("Ese correo ya está en uso por otro usuario. Intente con otro.");
+            } else {
+                usuarioLogueado.setCorreo(nuevoCorreo);
+                break;
+            }
         }
 
         System.out.println("Contraseña actual: (oculto)");
@@ -398,11 +440,11 @@ public class Client {
         } else {
             System.out.println("Error al actualizar los datos.");
         }
+        
     }
     
     public void borrarCuenta(Scanner scanner) throws RemoteException {
-        if (usuarioLogueado == null) {
-            System.out.println("Debe iniciar sesión primero.");
+        if (!validarExistenciaUsuario()) {
             return;
         }
 
@@ -419,6 +461,24 @@ public class Client {
             }
         } else {
             System.out.println("Cancelado.");
+        }
+    }
+    
+    public void verMisDatos(Scanner scanner) throws RemoteException {
+        if (!validarExistenciaUsuario()) {
+            return;
+        }
+
+        Persona usuario = server.getUsuarioPorId(usuarioLogueado.getId());
+
+        if (usuario != null) {
+            System.out.println("ID: " + usuario.getId());
+            System.out.println("Nombre: " + usuario.getNombre());
+            System.out.println("Apellido: " + usuario.getApellido());
+            System.out.println("Correo: " + usuario.getCorreo());
+            System.out.println("Contraseña: " + usuario.getContraseña());
+        } else {
+            System.out.println("No se encontraron datos para el usuario.");
         }
     }
 

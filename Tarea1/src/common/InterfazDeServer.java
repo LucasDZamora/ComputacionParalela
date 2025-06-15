@@ -10,8 +10,9 @@ public interface InterfazDeServer extends Remote {
     public boolean agregarPersona(String nombre, String apellido, String contraseña, String correo) throws RemoteException;
     public boolean actualizarUsuario(Persona persona) throws RemoteException;
     public boolean borrarUsuario(int idUsuario) throws RemoteException;
-
+    public Persona buscarUsuarioPorCorreo(String correo) throws RemoteException;
     Object[] getProductos() throws RemoteException;
+    public Persona getUsuarioPorId(int idUsuario) throws RemoteException;
     ArrayList<Historial> getHistorialPorUsuario(int idUsuario) throws RemoteException;
     Persona login(String correo, String contraseña) throws RemoteException;
     void agregarHistorial(int idUsuario, int idProducto) throws RemoteException;

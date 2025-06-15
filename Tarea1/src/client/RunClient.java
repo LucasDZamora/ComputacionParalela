@@ -24,7 +24,8 @@ public class RunClient {
                 System.out.println("6. Modificar Datos");
                 System.out.println("7. Borrar cuenta");
                 System.out.println("8. Registrarse");
-                System.out.println("9. Salir");
+                System.out.println("9. Ver mis datos personales");
+                System.out.println("10. Salir");
                 System.out.print("Seleccione una opción: ");
                 
                 int opcion = scanner.nextInt();
@@ -38,8 +39,9 @@ public class RunClient {
                     case 5: cliente.comprarProducto(scanner); break;
                     case 6: cliente.modificarDatos(scanner); break;
                     case 7: cliente.borrarCuenta(scanner); break;
-                    case 8: cliente.registrarse(scanner); break;                     
-                    case 9: 
+                    case 8: cliente.registrarse(scanner); break; 
+                    case 9: cliente.verMisDatos(scanner); break; 
+                    case 10: 
                         System.out.println("Gracias por visitar la tienda. ¡Hasta pronto!");
                         System.exit(0);
                     default: System.out.println("Opción inválida");
